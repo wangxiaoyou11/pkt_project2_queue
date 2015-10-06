@@ -17,6 +17,7 @@ public class IPRouter implements IPConsumer{
 	private double virtualTime = 0.0;
 	private FIFOQueue outputQueue = new FIFOQueue();
 	private int rrindex = -1;
+	private int wrrcounter = 0;
 	
 	/**
 	 * The default constructor of a router
@@ -43,7 +44,7 @@ public class IPRouter implements IPConsumer{
 		if(this.fifo) {
 			outputQueue.offer(packet);
 			return;
-		} else if(this.rr) {
+		} else if(this.rr || this.wrr) {
 			inputQueues.get(nic).offer(packet);
 			return;
 		}
@@ -108,23 +109,26 @@ public class IPRouter implements IPConsumer{
 		FIFOQueue queue = null;
 		int nicsSize = nics.size();
 		int count = 0;
-		do {
+		while(true) {
 			if(count == nicsSize)
 				break;
 			queue = inputQueues.get(nics.get(rrindex));
+			if(!queue.isEmpty())
+				break;
 			rrindex = (rrindex + 1) % nicsSize;
 			count ++;
-		} while(queue.isEmpty());
+		}
 		if(queue != null && !queue.isEmpty()) {
 			queue.routeBit();
+			if(!routeEntirePacket)
+				rrindex = (rrindex + 1) % nicsSize;
 			try {
 				if(queue.element().getSize() == queue.getBitsRoutedSinceLastPacketSent()) {
 					IPPacket packet = queue.remove();
 					this.forwardPacket(packet);
-				} else {
 					if(routeEntirePacket)
-						rrindex = (rrindex + nicsSize - 1) % nicsSize;
-				}
+						rrindex = (rrindex + 1) % nicsSize;
+				} 
 			} catch(NoSuchElementException e) {
 				
 			};
@@ -136,7 +140,38 @@ public class IPRouter implements IPConsumer{
 	 * Perform weighted round robin on the queue
 	 */
 	private void wrr(){
-
+		if(rrindex < 0 || rrindex >= nics.size())
+			return;
+		FIFOQueue queue = null;
+		int nicsSize = nics.size();
+		int count = 0;
+		while(true) {
+			if(count == nicsSize)
+				break;
+			queue = inputQueues.get(nics.get(rrindex));
+			if(!queue.isEmpty())
+				break;
+			rrindex = (rrindex + 1) % nicsSize;
+			wrrcounter = 0;
+			count ++;
+		}
+		if(queue != null && !queue.isEmpty()) {
+			queue.routeBit();
+			wrrcounter ++;
+			if(wrrcounter == queue.getWeight()) {
+				rrindex = (rrindex + 1) % nicsSize;
+				wrrcounter = 0;
+			}
+			try {
+				if(queue.element().getSize() == queue.getBitsRoutedSinceLastPacketSent()) {
+					IPPacket packet = queue.remove();
+					this.forwardPacket(packet);
+				} 
+			} catch(NoSuchElementException e) {
+				
+			};
+		}
+		
 	}
 	
 	/**
@@ -223,7 +258,8 @@ public class IPRouter implements IPConsumer{
 		
 		// Setup router for Round Robin under here
 		for(IPNIC nic : nics) {
-			inputQueues.put(nic, new FIFOQueue());
+			if(!inputQueues.containsKey(nic))
+				inputQueues.put(nic, new FIFOQueue());
 		}
 		rrindex = 0;
 	}
@@ -238,7 +274,11 @@ public class IPRouter implements IPConsumer{
 		this.wfq = false;
 		
 		// Setup router for Weighted Round Robin under here
-		
+		for(IPNIC nic : nics) {
+			if(!inputQueues.containsKey(nic))
+				inputQueues.put(nic, new FIFOQueue());
+		}
+		rrindex = 0;
 	}
 	
 	/**
