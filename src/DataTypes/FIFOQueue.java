@@ -6,6 +6,7 @@ public class FIFOQueue{
 	private int weight=1;
 	private int bitsRoutedSinceLastPacketSend=0;
 	private ArrayList<IPPacket> packets = new ArrayList<IPPacket>();
+	private double lastFinishTime = 0.0;
 	
 	/**
 	 * Default constructor for a FIFO Queue
@@ -95,5 +96,13 @@ public class FIFOQueue{
 	
 	public boolean isEmpty() {
 		return packets.size() == 0;
+	}
+	
+	public void setLastFinishTime(double time) {
+		this.lastFinishTime = time;
+	}
+	
+	public double getLastFinishTime() {
+		return lastFinishTime;
 	}
 }

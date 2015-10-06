@@ -18,6 +18,8 @@ public class IPRouter implements IPConsumer{
 	private FIFOQueue outputQueue = new FIFOQueue();
 	private int rrindex = -1;
 	private int wrrcounter = 0;
+	// used in wfq, record the sum of weights of active flows
+	private int weightSum = 0;
 	
 	/**
 	 * The default constructor of a router
@@ -43,17 +45,20 @@ public class IPRouter implements IPConsumer{
 	public void receivePacket(IPPacket packet, IPNIC nic){
 		if(this.fifo) {
 			outputQueue.offer(packet);
-			return;
 		} else if(this.rr || this.wrr) {
 			inputQueues.get(nic).offer(packet);
-			return;
-		}
-		this.forwardPacket(packet);
-		
-		// If wfq set the expected finish time
-		if(this.wfq){
-			
-		}
+		} else if(this.wfq) {
+			// If wfq set the expected finish time
+			FIFOQueue queue = inputQueues.get(nic);
+			if(queue.isEmpty())
+				weightSum += queue.getWeight();
+			double finishTime = Math.max(queue.getLastFinishTime(), virtualTime) + (double)packet.getSize() / queue.getWeight();
+			packet.setFinishTime(finishTime);
+			queue.setLastFinishTime(finishTime);
+			queue.offer(packet);
+		} else {
+			this.forwardPacket(packet);
+		}	
 	}
 	
 	public void forwardPacket(IPPacket packet){
@@ -182,7 +187,31 @@ public class IPRouter implements IPConsumer{
 	 * Perform weighted fair queuing on the queue
 	 */
 	private void wfq(){
-
+		if(lastServicedQueue == null) {
+			double minFinishTime = Double.MAX_VALUE;
+			for(Iterator<FIFOQueue> queues = this.inputQueues.values().iterator(); queues.hasNext();){
+				FIFOQueue queue = queues.next();
+				if(!queue.isEmpty()) {
+					double time = queue.element().getFinishTime();
+					if(time < minFinishTime) {
+						minFinishTime = time;
+						lastServicedQueue = queue;
+					}
+				}		
+			}
+		}
+		if(lastServicedQueue == null)
+			return;
+		lastServicedQueue.routeBit();
+		try {
+			if(lastServicedQueue.element().getSize() == lastServicedQueue.getBitsRoutedSinceLastPacketSent()) {
+				IPPacket packet = lastServicedQueue.remove();
+				this.forwardPacket(packet);
+				lastServicedQueue = null;
+			} 
+		} catch(NoSuchElementException e) {
+			
+		};
 	}
 	
 	/**
@@ -231,7 +260,7 @@ public class IPRouter implements IPConsumer{
 		}
 		// calculate the new virtual time for the next round
 		if(this.wfq){
-			
+			virtualTime += 1.0 / weightSum;
 		}
 		
 		// route bit for this round
@@ -295,7 +324,11 @@ public class IPRouter implements IPConsumer{
 		this.wfq = true;
 		
 		// Setup router for Weighted Fair Queuing under here
-		
+		for(IPNIC nic : nics) {
+			if(!inputQueues.containsKey(nic))
+				inputQueues.put(nic, new FIFOQueue());
+		}
+		rrindex = 0;
 	}
 	
 	/**
