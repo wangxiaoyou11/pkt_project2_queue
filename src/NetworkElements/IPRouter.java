@@ -16,6 +16,7 @@ public class IPRouter implements IPConsumer{
 	private FIFOQueue lastServicedQueue = null;
 	private double virtualTime = 0.0;
 	private FIFOQueue outputQueue = new FIFOQueue();
+	private int rrindex = -1;
 	
 	/**
 	 * The default constructor of a router
@@ -41,6 +42,9 @@ public class IPRouter implements IPConsumer{
 	public void receivePacket(IPPacket packet, IPNIC nic){
 		if(this.fifo) {
 			outputQueue.offer(packet);
+			return;
+		} else if(this.rr) {
+			inputQueues.get(nic).offer(packet);
 			return;
 		}
 		this.forwardPacket(packet);
@@ -99,7 +103,30 @@ public class IPRouter implements IPConsumer{
 	 * Perform round robin on the queue
 	 */
 	private void rr(){
-
+		if(rrindex < 0 || rrindex >= nics.size())
+			return;
+		FIFOQueue queue = null;
+		int nicsSize = nics.size();
+		int count = 0;
+		do {
+			if(count == nicsSize)
+				break;
+			queue = inputQueues.get(nics.get(rrindex));
+			rrindex = (rrindex + 1) % nicsSize;
+			count ++;
+		} while(queue.isEmpty());
+		if(queue != null && !queue.isEmpty()) {
+			queue.routeBit();
+			try {
+				if(queue.element().getSize() == queue.getBitsRoutedSinceLastPacketSent()) {
+					IPPacket packet = queue.remove();
+					this.forwardPacket(packet);
+				}
+			} catch(NoSuchElementException e) {
+				
+			};
+		}
+		
 	}
 	
 	/**
@@ -192,7 +219,10 @@ public class IPRouter implements IPConsumer{
 		this.wfq = false;
 		
 		// Setup router for Round Robin under here
-		
+		for(IPNIC nic : nics) {
+			inputQueues.put(nic, new FIFOQueue());
+		}
+		rrindex = 0;
 	}
 	
 	/**

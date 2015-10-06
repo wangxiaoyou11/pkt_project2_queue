@@ -92,4 +92,8 @@ public class FIFOQueue{
 		}
 		else return null;
 	}
+	
+	public boolean isEmpty() {
+		return packets.size() == 0;
+	}
 }
