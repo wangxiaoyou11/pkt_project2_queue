@@ -2,6 +2,7 @@ package NetworkElements;
 
 import java.util.*;
 import java.net.*;
+
 import DataTypes.*;
 
 public class IPRouter implements IPConsumer{
@@ -14,6 +15,7 @@ public class IPRouter implements IPConsumer{
 	// remembering the queue rather than the interface number is useful for wfq
 	private FIFOQueue lastServicedQueue = null;
 	private double virtualTime = 0.0;
+	private FIFOQueue outputQueue = new FIFOQueue();
 	
 	/**
 	 * The default constructor of a router
@@ -38,7 +40,8 @@ public class IPRouter implements IPConsumer{
 	 */
 	public void receivePacket(IPPacket packet, IPNIC nic){
 		if(this.fifo) {
-			
+			outputQueue.offer(packet);
+			return;
 		}
 		this.forwardPacket(packet);
 		
@@ -81,7 +84,15 @@ public class IPRouter implements IPConsumer{
 	 * Perform FIFO scheduler on the queue
 	 */
 	private void fifo(){
-
+		outputQueue.routeBit();
+		try {
+			if(outputQueue.element().getSize() == outputQueue.getBitsRoutedSinceLastPacketSent()) {
+				IPPacket packet = outputQueue.remove();
+				this.forwardPacket(packet);
+			}
+		} catch(NoSuchElementException e) {
+			
+		};
 	}
 	
 	/**
@@ -136,16 +147,19 @@ public class IPRouter implements IPConsumer{
 	public void tock(){
 		this.time+=1;
 		
-		// Add 1 delay to all packets in queues
-		ArrayList<FIFOQueue> delayedQueues = new ArrayList<FIFOQueue>();
-		for(Iterator<FIFOQueue> queues = this.inputQueues.values().iterator(); queues.hasNext();){
-			FIFOQueue queue = queues.next();
-			if(!delayedQueues.contains(queue)){
-				delayedQueues.add(queue);
-				queue.tock();
+		if(this.fifo) {
+			outputQueue.tock();
+		} else {
+			// Add 1 delay to all packets in queues
+			ArrayList<FIFOQueue> delayedQueues = new ArrayList<FIFOQueue>();
+			for(Iterator<FIFOQueue> queues = this.inputQueues.values().iterator(); queues.hasNext();){
+				FIFOQueue queue = queues.next();
+				if(!delayedQueues.contains(queue)){
+					delayedQueues.add(queue);
+					queue.tock();
+				}
 			}
 		}
-		
 		// calculate the new virtual time for the next round
 		if(this.wfq){
 			
