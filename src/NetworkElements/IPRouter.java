@@ -158,7 +158,7 @@ public class IPRouter implements IPConsumer{
 		if(queue != null && !queue.isEmpty()) {
 			queue.routeBit();
 			wrrcounter ++;
-			if(wrrcounter == queue.getWeight()) {
+			if(!routeEntirePacket && wrrcounter == queue.getWeight()) {
 				rrindex = (rrindex + 1) % nicsSize;
 				wrrcounter = 0;
 			}
@@ -166,6 +166,10 @@ public class IPRouter implements IPConsumer{
 				if(queue.element().getSize() == queue.getBitsRoutedSinceLastPacketSent()) {
 					IPPacket packet = queue.remove();
 					this.forwardPacket(packet);
+					if(routeEntirePacket && wrrcounter >= queue.getWeight()) {
+						rrindex = (rrindex + 1) % nicsSize;
+						wrrcounter = 0;
+					}
 				} 
 			} catch(NoSuchElementException e) {
 				
