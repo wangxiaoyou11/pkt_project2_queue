@@ -121,6 +121,9 @@ public class IPRouter implements IPConsumer{
 				if(queue.element().getSize() == queue.getBitsRoutedSinceLastPacketSent()) {
 					IPPacket packet = queue.remove();
 					this.forwardPacket(packet);
+				} else {
+					if(routeEntirePacket)
+						rrindex = (rrindex + nicsSize - 1) % nicsSize;
 				}
 			} catch(NoSuchElementException e) {
 				

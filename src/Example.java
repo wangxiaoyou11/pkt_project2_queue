@@ -63,13 +63,13 @@ public class Example {
 		 * (Computer): Received a packet 10.0.0.1 > 10.0.0.2 took 70 time
 		 * (Computer): Received a packet 10.0.0.1 > 10.0.0.3 took 120 time
 		 */
-		router.setIsRoundRobin();
-		router.setRouteEntirePacket(false);
-		hostA.sendPacket("10.0.0.2", 50);
-		hostA.sendPacket("10.0.0.3", 50);
-		hostB.sendPacket("10.0.0.1", 20);
-		for(int i=0; i<200; i++)
-			router.tock();
+//		router.setIsRoundRobin();
+//		router.setRouteEntirePacket(false);
+//		hostA.sendPacket("10.0.0.2", 50);
+//		hostA.sendPacket("10.0.0.3", 50);
+//		hostB.sendPacket("10.0.0.1", 20);
+//		for(int i=0; i<200; i++)
+//			router.tock();
 		
 		/*
 		 * Remove comment marks to test RR, packet-by-packet
@@ -78,13 +78,13 @@ public class Example {
 		 * (Computer): Received a packet 10.0.0.2 > 10.0.0.1 took 70 time
 		 * (Computer): Received a packet 10.0.0.1 > 10.0.0.3 took 120 time
 		 */
-//		router.setIsRoundRobin();
-//		router.setRouteEntirePacket(true);
-//		hostA.sendPacket("10.0.0.2", 50);
-//		hostA.sendPacket("10.0.0.3", 50);
-//		hostB.sendPacket("10.0.0.1", 20);
-//		for(int i=0; i<200; i++)
-//			router.tock();
+		router.setIsRoundRobin();
+		router.setRouteEntirePacket(true);
+		hostA.sendPacket("10.0.0.2", 50);
+		hostA.sendPacket("10.0.0.3", 50);
+		hostB.sendPacket("10.0.0.1", 20);
+		for(int i=0; i<200; i++)
+			router.tock();
 		
 		/*
 		 * Remove comment marks to test WRR, bit-by-bit
